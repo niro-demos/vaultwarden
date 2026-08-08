@@ -416,9 +416,14 @@ pub struct FileDownloadClaims {
     pub sub: CipherId,
 
     pub file_id: AttachmentId,
+    pub user_id: UserId,
 }
 
-pub fn generate_file_download_claims(cipher_id: CipherId, file_id: AttachmentId) -> FileDownloadClaims {
+pub fn generate_file_download_claims(
+    cipher_id: CipherId,
+    file_id: AttachmentId,
+    user_id: UserId,
+) -> FileDownloadClaims {
     let time_now = Utc::now();
     FileDownloadClaims {
         nbf: time_now.timestamp(),
@@ -426,6 +431,26 @@ pub fn generate_file_download_claims(cipher_id: CipherId, file_id: AttachmentId)
         iss: JWT_FILE_DOWNLOAD_ISSUER.to_string(),
         sub: cipher_id,
         file_id,
+        user_id,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::generate_file_download_claims;
+    use crate::db::models::{AttachmentId, CipherId, UserId};
+
+    #[test]
+    fn file_download_claims_are_bound_to_requesting_user() {
+        let cipher_id: CipherId = "00000000-0000-4000-8000-000000000001".to_owned().into();
+        let file_id = AttachmentId("attachment-id".to_owned());
+        let user_id: UserId = "00000000-0000-4000-8000-000000000002".to_owned().into();
+
+        let claims = generate_file_download_claims(cipher_id.clone(), file_id.clone(), user_id.clone());
+
+        assert_eq!(claims.sub, cipher_id);
+        assert_eq!(claims.file_id, file_id);
+        assert_eq!(claims.user_id, user_id);
     }
 }
 
