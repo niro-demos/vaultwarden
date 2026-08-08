@@ -3213,8 +3213,11 @@ async fn api_key(
 
     let org_api_key = if let Some(mut org_api_key) = OrganizationApiKey::find_by_org_uuid(org_id, &conn).await {
         if rotate {
-            org_api_key.api_key = crate::crypto::generate_api_key();
-            org_api_key.revision_date = chrono::Utc::now().naive_utc();
+            OrganizationApiKey::delete_all_by_organization(org_id, &conn)
+                .await
+                .expect("Error revoking previous organization API Key");
+
+            org_api_key = OrganizationApiKey::new(org_id.clone(), crate::crypto::generate_api_key());
             org_api_key.save(&conn).await.expect("Error rotating organization API Key");
         }
         org_api_key
