@@ -19,7 +19,7 @@ use crate::{
     crypto::sha256_hex,
     db::{
         DbConn,
-        models::{AttachmentId, CipherId},
+        models::{AttachmentId, Cipher, CipherId},
     },
     error::Error,
     util::{Cached, EtagCached},
@@ -228,11 +228,16 @@ async fn web_files(p: PathBuf) -> Cached<Option<NamedFile>> {
 }
 
 #[get("/attachments/<cipher_id>/<file_id>?<token>")]
-async fn attachments(cipher_id: CipherId, file_id: AttachmentId, token: String) -> Option<NamedFile> {
+async fn attachments(cipher_id: CipherId, file_id: AttachmentId, token: String, conn: DbConn) -> Option<NamedFile> {
     let Ok(claims) = decode_file_download(&token) else {
         return None;
     };
     if claims.sub != cipher_id || claims.file_id != file_id {
+        return None;
+    }
+
+    let cipher = Cipher::find_by_uuid(&cipher_id, &conn).await?;
+    if !cipher.is_accessible_to_user(&claims.user_id, &conn).await {
         return None;
     }
 

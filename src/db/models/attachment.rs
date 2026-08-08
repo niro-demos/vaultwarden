@@ -54,21 +54,25 @@ impl Attachment {
         format!("{}/{}", self.cipher_uuid, self.id)
     }
 
-    pub async fn get_url(&self, host: &str) -> Result<String, crate::Error> {
+    pub async fn get_url(&self, host: &str, user_uuid: &UserId) -> Result<String, crate::Error> {
         let operator = CONFIG.opendal_operator_for_path_type(&PathType::Attachments)?;
 
         if crate::storage::is_fs_operator(&operator) {
-            let token = encode_jwt(&generate_file_download_claims(self.cipher_uuid.clone(), self.id.clone()));
+            let token = encode_jwt(&generate_file_download_claims(
+                self.cipher_uuid.clone(),
+                self.id.clone(),
+                user_uuid.clone(),
+            ));
             Ok(format!("{host}/attachments/{}/{}?token={token}", self.cipher_uuid, self.id))
         } else {
             Ok(operator.presign_read(&self.get_file_path(), Duration::from_mins(5)).await?.uri().to_string())
         }
     }
 
-    pub async fn to_json(&self, host: &str) -> Result<Value, crate::Error> {
+    pub async fn to_json(&self, host: &str, user_uuid: &UserId) -> Result<Value, crate::Error> {
         Ok(json!({
             "id": self.id,
-            "url": self.get_url(host).await?,
+            "url": self.get_url(host, user_uuid).await?,
             "fileName": self.file_name,
             "size": self.file_size.to_string(),
             "sizeName": crate::util::get_display_size(self.file_size),
